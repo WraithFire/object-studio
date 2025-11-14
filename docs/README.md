@@ -126,6 +126,8 @@ Frame-1-Layer-0.png
 Frame-1-Layer-2.png
 ```
 
+**Layers are stacked in ascending order** — each higher layer is drawn **on top** of the one before it (Layer-1 covers Layer-0, Layer-2 covers Layer-1, and so on).
+
 ### Image Requirements
 
 All cel images must meet the following requirements to be compatible with the **Object Generator**:

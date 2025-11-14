@@ -174,6 +174,11 @@ def validate_og_input_folder(folder):
 
     if not images_dict:
         print("\n❌ No valid images found")
+    else:
+        common_image_size = (
+            common_image_size[0] + padding_width,
+            common_image_size[1] + padding_height,
+        )
 
     return (
         images_dict,
