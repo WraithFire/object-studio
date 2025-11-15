@@ -161,7 +161,7 @@ def validate_og_input_folder(folder):
                             "frame_layer_palette_tuple": (
                                 frame_num,
                                 layer_num,
-                                groups_used[0],
+                                int(groups_used[0]),
                             ),
                             "is_transparent": is_transparent,
                         }
@@ -193,7 +193,7 @@ def create_tile_hash_dict(image_array, is_transparent):
     tile_hash_dict = {}
 
     if is_transparent:
-        return None
+        return tile_hash_dict
 
     image_height, image_width = image_array.shape
     tiles_y = image_height // TILE_SIZE
@@ -1167,6 +1167,11 @@ def do_debug_exclusive_stuff(
         chunk_track_dict[key].pop("chunk_numpy_array", None)
         chunk_track_dict[key].pop("inside_coordinates", None)
 
+    for key in images_dict:
+        images_dict[key].pop("image_data", None)
+        images_dict[key].pop("tile_hash_dict", None)
+        images_dict[key].pop("valid_coordinates", None)
+
     # save debug info
     DEBUG_LOG_OUTPUT = os.path.join(debug_output_dir, "log.py")
     with open(DEBUG_LOG_OUTPUT, "w", encoding="utf-8") as f:
@@ -1174,6 +1179,8 @@ def do_debug_exclusive_stuff(
         f.write(json.dumps(chunk_track_dict, indent=4, ensure_ascii=False))
         f.write("\n\nFormatted_Chunk_Track_Dict = ")
         f.write(json.dumps(formatted_chunk_track_dict, indent=4, ensure_ascii=False))
+        f.write("\n\nImages_Dict = ")
+        f.write(json.dumps(images_dict, indent=4, ensure_ascii=False))
 
 
 def save_chunks_to_folder(chunk_track_dict, reduced_shared_palette, output_folder):
