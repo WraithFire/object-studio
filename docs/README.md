@@ -17,14 +17,12 @@
         -   [Displace Object](#displace-object)
         -   [Scan Options](#scan-options)
         -   [Animation Settings](#animation-settings)
-    -   [Object Generator Output](#object-generator-output)
-        -   [How to Use with `SetAnimation()`](#how-to-use-with-setanimation)
+    -   [How to Use with `SetAnimation()`](#how-to-use-with-setanimation)
 -   [Frames Generator](#frames-generator)
     -   [Folder Requirements](#folder-requirements)
     -   [Using the Frames Generator](#using-the-frames-generator)
     -   [Frames Generator Configurations](#frames-generator-configurations)
         -   [Avoid Overlap](#avoid-overlap)
-    -   [Frames Generator Output](#frames-generator-output)
 -   [Bulk Conversion](#bulk-conversion)
 
 # Object Generator
@@ -314,7 +312,7 @@ Animation 2:
 
 Click **View Animations** to preview how it looks in-game — test the timing and flow, and adjust it until it feels right.
 
-### How to Use with `SetAnimation()`
+## How to Use with `SetAnimation()`
 
 `SetAnimation` is an **ExplorerScript** function used to change the current animation of an object.
 
