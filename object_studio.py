@@ -1102,10 +1102,10 @@ class ObjectStudioGUI:
                         f"Version {latest_version} is now available. Please update.",
                     )
                 elif DEBUG:
-                    print("✅ Up to date.")
+                    print("[OK] Up to date.")
         except Exception as e:
             if DEBUG:
-                print(f"⚠️  Could not check for updates. \n{e}")
+                print(f"[WARNING] Could not check for updates. \n{e}")
 
     def browse_folder(self):
         folder = filedialog.askdirectory(
@@ -1700,14 +1700,14 @@ class ObjectStudioGUI:
 
             if DEBUG:
                 print(
-                    f"✅ Composite images created for frames: {self.og_available_frames}\n"
+                    f"[OK] Composite images created for frames: {self.og_available_frames}\n"
                 )
 
-            print(f"✅ Available Frames: {self.og_available_frames}")
+            print(f"[OK] Available Frames: {self.og_available_frames}")
 
             # Enable process button
             self.generate_object_btn.config(state="normal")
-            print("\n✅ Validation Successful. Ready to generate.")
+            print("\n[OK] Validation Successful. Ready to generate.")
 
     def generate_object(self):
         self.clear_console()
@@ -1727,7 +1727,7 @@ class ObjectStudioGUI:
                 displace_y = self.displace_y.get()
             except tk.TclError:
                 print(
-                    f"\n⚠️ Displace X and Y values cannot be empty — using 0 as default"
+                    f"\n[WARNING] Displace X and Y values cannot be empty — using 0 as default"
                 )
                 self.displace_x.set(0)
                 self.displace_y.set(0)
@@ -1747,7 +1747,7 @@ class ObjectStudioGUI:
             inter_scan = self.interscan_var.get()
             input_folder = self.input_folder.get()
 
-            print("\n🚀 Starting Object Generation...")
+            print("\n[START] Starting Object Generation...")
 
             data_needed_for_processing = (
                 input_folder,
@@ -1767,10 +1767,10 @@ class ObjectStudioGUI:
 
             generate_object_main(data_needed_for_processing)
 
-            print(f"\n✅ Object Generated Successfully")
+            print(f"\n[OK] Object Generated Successfully")
 
         except Exception as e:
-            print(f"\n❌ Error during generation:\n{str(e)}")
+            print(f"\n[ERROR] Error during generation:\n{str(e)}")
 
         finally:
             self.root.after(0, lambda: self.browse_btn.config(state="normal"))
@@ -1812,7 +1812,7 @@ class ObjectStudioGUI:
             self.fg_animations_xml_root = animations_xml_root
 
             self.generate_frames_btn.config(state="normal")
-            print("✅ Validation Successful. Ready to generate.")
+            print("[OK] Validation Successful. Ready to generate.")
 
     def generate_frames(self):
         self.clear_console()
@@ -1829,7 +1829,7 @@ class ObjectStudioGUI:
             input_folder = self.recon_folder.get()
             avoid_overlap = self.avoid_overlap.get()
 
-            print("\n🚀 Starting Frames Generation...")
+            print("\n[START] Starting Frames Generation...")
 
             data_needed_for_processing = (
                 self.fg_normal_mode,
@@ -1844,10 +1844,10 @@ class ObjectStudioGUI:
 
             generate_frames_main(data_needed_for_processing)
 
-            print(f"\n✅  Frames Generated Successfully")
+            print(f"\n[OK] Frames Generated Successfully")
 
         except Exception as e:
-            print(f"\n❌ Error during generation:\n{str(e)}")
+            print(f"\n[ERROR] Error during generation:\n{str(e)}")
 
         finally:
             self.root.after(0, lambda: self.recon_browse_btn.config(state="normal"))

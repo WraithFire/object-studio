@@ -11,7 +11,7 @@ from data.constants import TILE_SIZE, CHUNK_SIZES
 
 
 def validate_og_input_folder(folder):
-    print("🔍 Validating images in folder...\n")
+    print("[VALIDATING] Validating images in folder...\n")
 
     images_dict = {}
     common_image_size = None
@@ -25,7 +25,7 @@ def validate_og_input_folder(folder):
     png_files = [f for f in os.listdir(folder) if f.lower().endswith(".png")]
 
     if not png_files:
-        print("\n❌ No png images found")
+        print("\n[ERROR] No png images found")
         return (
             images_dict,
             common_image_size,
@@ -47,7 +47,7 @@ def validate_og_input_folder(folder):
             or parts[2].lower() != "layer"
             or not parts[3].isdigit()
         ):
-            print(f"⚠️  {file_name}:")
+            print(f"[WARNING] {file_name}:")
             print(f"    • Invalid name format")
             continue
 
@@ -94,7 +94,7 @@ def validate_og_input_folder(folder):
 
                 # Print all errors for this file
                 if errors_for_file:
-                    print(f"⚠️  {file_name}:")
+                    print(f"[WARNING] {file_name}:")
                     for error in errors_for_file:
                         print(f"    • {error}")
                 else:
@@ -118,7 +118,7 @@ def validate_og_input_folder(folder):
 
                     if groups_used.size > 1:
                         print(
-                            f"💡 {file_name}: Splitting into palette layers {groups_used.tolist()}\n"
+                            f"[INFO] {file_name}: Splitting into palette layers {groups_used.tolist()}\n"
                         )
 
                         for palette_group in groups_used:
@@ -169,11 +169,11 @@ def validate_og_input_folder(folder):
                     available_frames.add(frame_num)
 
         except Exception as e:
-            print(f"⚠️  {file_name}: Error reading file - {str(e)}")
+            print(f"[WARNING] {file_name}: Error reading file - {str(e)}")
             continue
 
     if not images_dict:
-        print("\n❌ No valid images found")
+        print("\n[ERROR] No valid images found")
     else:
         common_image_size = (
             common_image_size[0] + padding_width,
@@ -405,7 +405,7 @@ def save_riff_palette(palette, output_folder):
     with open(PALETTE_OUT, "wb") as f:
         f.write(riff_chunk)
 
-    print(f"✅ palette.pal saved to: {PALETTE_OUT}")
+    print(f"[OK] palette.pal saved to: {PALETTE_OUT}")
 
 
 def generate_frames_xml(formatted_chunk_track_dict, initial_coordinate, output_folder):
@@ -514,7 +514,7 @@ def generate_frames_xml(formatted_chunk_track_dict, initial_coordinate, output_f
     with open(FRAMES_XML_OUT, "w", encoding="utf-8") as f:
         f.write(pretty_xml)
 
-    print(f"✅ frames.xml saved to: {FRAMES_XML_OUT}")
+    print(f"[OK] frames.xml saved to: {FRAMES_XML_OUT}")
 
     return frame_memory_usage
 
@@ -563,7 +563,7 @@ def generate_animations_xml(available_frames, animation_group, output_folder):
     with open(ANIMATIONS_XML_OUT, "w", encoding="utf-8") as f:
         f.write(pretty_xml)
 
-    print(f"✅ animation.xml saved to: {ANIMATIONS_XML_OUT}")
+    print(f"[OK] animation.xml saved to: {ANIMATIONS_XML_OUT}")
 
 
 def generate_sprite_info_xml(max_memory_used, max_colors_used, output_folder):
@@ -607,7 +607,7 @@ def generate_sprite_info_xml(max_memory_used, max_colors_used, output_folder):
     with open(SPRITE_INFO_XML_OUT, "w", encoding="utf-8") as f:
         f.write(pretty_xml)
 
-    print(f"✅ spriteinfo.xml saved to: {SPRITE_INFO_XML_OUT}")
+    print(f"[OK] spriteinfo.xml saved to: {SPRITE_INFO_XML_OUT}")
 
 
 def generate_imgsinfo_and_offsets_xml(output_folder):
@@ -617,7 +617,7 @@ def generate_imgsinfo_and_offsets_xml(output_folder):
     pretty_xml = string_to_pretty_xml(xml_text_string)
     with open(IMGS_INFO_XML_OUT, "w", encoding="utf-8") as f:
         f.write(pretty_xml)
-    print(f"✅ imgsinfo.xml saved to: {IMGS_INFO_XML_OUT}")
+    print(f"[OK] imgsinfo.xml saved to: {IMGS_INFO_XML_OUT}")
 
     # Generate offsets.xml
     OFFSETS_XML_OUT = os.path.join(output_folder, "offsets.xml")
@@ -625,7 +625,7 @@ def generate_imgsinfo_and_offsets_xml(output_folder):
     pretty_xml = string_to_pretty_xml(xml_text_string)
     with open(OFFSETS_XML_OUT, "w", encoding="utf-8") as f:
         f.write(pretty_xml)
-    print(f"✅ offsets.xml saved to: {OFFSETS_XML_OUT}")
+    print(f"[OK] offsets.xml saved to: {OFFSETS_XML_OUT}")
 
 
 def save_unique_chunk_in_dict(
@@ -726,7 +726,7 @@ def save_remaining_chunks(
             continue
 
         chunk_message = (
-            f"\n🔍 Scanning for remaining chunks of size ({chunk_width}x{chunk_height})"
+            f"\n[SCANNING] Scanning for remaining chunks of size ({chunk_width}x{chunk_height})"
         )
         if DEBUG:
             chunk_message = f"\n{'-'*59}{chunk_message}\n{'-'*59}\n"
@@ -917,7 +917,7 @@ def scan_for_repeated_chunks(
             if not np.array_equal(original_chunk_numpy, oriented_chunk_numpy):
                 continue
 
-            # ✅ Found a valid duplicate
+            # [OK] Found a valid duplicate
             matched = True
 
             # Check if ANY orientation of this chunk is already in chunk_track_dict
@@ -1037,7 +1037,7 @@ def save_repeated_chunks(
 
                 chunk_size_specific_dict = {}
 
-                chunk_message = f"\n🔍 Scanning for repeated chunks of size ({chunk_width}x{chunk_height}) in Frame-{frame_no}"
+                chunk_message = f"\n[SCANNING] Scanning for repeated chunks of size ({chunk_width}x{chunk_height}) in Frame-{frame_no}"
 
                 if DEBUG:
                     chunk_message = f"\n{'-'*59}{chunk_message}\n{'-'*59}\n"
@@ -1067,7 +1067,7 @@ def save_repeated_chunks(
 
             chunk_size_specific_dict = {}
 
-            chunk_message = f"\n🔍 Scanning across images for repeated chunks of size ({chunk_width}x{chunk_height})"
+            chunk_message = f"\n[SCANNING] Scanning across images for repeated chunks of size ({chunk_width}x{chunk_height})"
 
             if DEBUG:
                 chunk_message = f"\n{'-'*59}{chunk_message}\n{'-'*59}\n"
@@ -1144,7 +1144,7 @@ def annotate_chunks(
         )
         image_data.save(output_path)
 
-    print(f"\n✅Annotated images saved to: {debug_output_dir}\n")
+    print(f"\n[OK] Annotated images saved to: {debug_output_dir}\n")
 
 
 def do_debug_exclusive_stuff(
@@ -1192,7 +1192,7 @@ def save_chunks_to_folder(chunk_track_dict, reduced_shared_palette, output_folde
         chunk_image.putpalette(reduced_shared_palette)
         filename = os.path.join(chunk_output_dir, f"{index:04d}.png")
         chunk_image.save(filename)
-    print(f"✅ chunks saved to: {chunk_output_dir}")
+    print(f"[OK] chunks saved to: {chunk_output_dir}")
 
 
 def give_object_overview(
@@ -1203,26 +1203,26 @@ def give_object_overview(
     formatted_chunk_track_dict,
 ):
     print("\nObject Info:")
-    print(f"❔ Maximum Memory Used by Animation: {max_memory_used}")
+    print(f"[INFO] Maximum Memory Used by Animation: {max_memory_used}")
 
     if max_memory_used > 255:
         print(
-            f"❌ Memory limit exceeded — this will cause in-game issues."
-            f"\n💡 Allowed maximum memory offset: 0xFF (255)"
+            f"[ERROR] Memory limit exceeded — this will cause in-game issues."
+            f"\n[INFO] Allowed maximum memory offset: 0xFF (255)"
         )
     elif max_memory_used > 138:
         print(
-            f"⚠️ High memory usage — may cause in-game issues."
-            f"\n💡 Base-game objects only use up to 0x8A (138)"
+            f"[WARNING] High memory usage — may cause in-game issues."
+            f"\n[INFO] Base-game objects only use up to 0x8A (138)"
         )
 
-    print(f"❔ Total Colors Used: {max_colors_used}")
+    print(f"[INFO] Total Colors Used: {max_colors_used}")
 
-    print(f"❔ Total Unique Chunks: {total_unique_chunks}")
+    print(f"[INFO] Total Unique Chunks: {total_unique_chunks}")
     if total_unique_chunks > 144:
         print(
-            f"⚠️ High total chunk count — may cause in-game issues."
-            f"\n💡 Base-game objects use up to 144 unique chunks"
+            f"[WARNING] High total chunk count — may cause in-game issues."
+            f"\n[INFO] Base-game objects use up to 144 unique chunks"
         )
 
     print("\nFrames Info: ")
@@ -1233,13 +1233,13 @@ def give_object_overview(
         )
         if total_chunks > 108:
             print(
-                f"❌ {frame} uses {total_chunks} chunks — exceeds in-game render limit."
-                f"\n💡 Allowed maximum chunks per frame: 108"
+                f"[ERROR] {frame} uses {total_chunks} chunks — exceeds in-game render limit."
+                f"\n[INFO] Allowed maximum chunks per frame: 108"
             )
         elif total_chunks > 80:
             print(
-                f"⚠️ {frame} uses {total_chunks} chunks — may cause in-game issues."
-                f"\n💡 Base-game frames use up to 80 chunks"
+                f"[WARNING] {frame} uses {total_chunks} chunks — may cause in-game issues."
+                f"\n[INFO] Base-game frames use up to 80 chunks"
             )
 
 
@@ -1268,7 +1268,7 @@ def generate_object_main(data):
         if images_dict[file_name]["is_transparent"]:
             images_dict[file_name]["valid_coordinates"] = set()
             if DEBUG:
-                print(f"\n⚠️ {file_name} is Transparent, No Valid Coordinate\n")
+                print(f"\n[WARNING] {file_name} is Transparent, No Valid Coordinate\n")
         else:
             images_dict[file_name]["valid_coordinates"] = valid_coordinates.copy()
 
@@ -1366,11 +1366,11 @@ def object_generator_process_multiple_folder(
     scan_chunk_sizes,
 ):
     if not os.path.exists(parent_folder):
-        print(f"❌ Parent folder does not exist: {parent_folder}")
+        print(f"[ERROR] Parent folder does not exist: {parent_folder}")
         return
 
     if not os.path.isdir(parent_folder):
-        print(f"❌ Path is not a directory: {parent_folder}")
+        print(f"[ERROR] Path is not a directory: {parent_folder}")
         return
 
     subfolders = [
@@ -1380,10 +1380,10 @@ def object_generator_process_multiple_folder(
     ]
 
     if not subfolders:
-        print(f"❌ No subfolders found in: {parent_folder}")
+        print(f"[ERROR] No subfolders found in: {parent_folder}")
         return
 
-    print(f"📁 Found {len(subfolders)} folder(s) to process\n")
+    print(f"[INFO] Found {len(subfolders)} folder(s) to process\n")
     print("=" * 60)
 
     success_count = 0
@@ -1409,7 +1409,7 @@ def object_generator_process_multiple_folder(
             or original_shared_palette is None
             or not available_frames
         ):
-            print(f"❌ Skipping {subfolder_name} due to validation errors\n")
+            print(f"[ERROR] Skipping {subfolder_name} due to validation errors\n")
             failed_folders.append(subfolder_name)
             continue
 
@@ -1421,7 +1421,7 @@ def object_generator_process_multiple_folder(
                     current_animation_group = config_data.get("animation_group", [])
                     if not current_animation_group:
                         print(
-                            f"⚠️ config.json found but animation_group is empty, using default"
+                            f"[WARNING] config.json found but animation_group is empty, using default"
                         )
                         current_animation_group = [
                             [
@@ -1430,7 +1430,7 @@ def object_generator_process_multiple_folder(
                             ]
                         ]
             except Exception as e:
-                print(f"⚠️ Error reading config.json: {str(e)}, using default")
+                print(f"[WARNING] Error reading config.json: {str(e)}, using default")
                 current_animation_group = [
                     [
                         {"frame": frame_num, "duration": 10}
@@ -1464,22 +1464,22 @@ def object_generator_process_multiple_folder(
             )
 
             generate_object_main(data)
-            print(f"✅ Successfully processed: {subfolder_name}")
+            print(f"[OK] Successfully processed: {subfolder_name}")
             success_count += 1
 
         except Exception as e:
-            print(f"❌ Error processing {subfolder_name}: {str(e)}")
+            print(f"[ERROR] Error processing {subfolder_name}: {str(e)}")
             failed_folders.append(subfolder_name)
 
     print("\n" + "=" * 60)
-    print("📊 PROCESSING SUMMARY")
+    print("[SUMMARY] PROCESSING SUMMARY")
     print("=" * 60)
-    print(f"📁 Total: {len(subfolders)}")
-    print(f"✅ Successful: {success_count}")
-    print(f"❌ Failed: {len(failed_folders)}")
+    print(f"[INFO] Total: {len(subfolders)}")
+    print(f"[OK] Successful: {success_count}")
+    print(f"[ERROR] Failed: {len(failed_folders)}")
 
     if failed_folders:
-        print("\n🚫 Failed folders:")
+        print("\n[ERROR] Failed folders:")
         for folder in failed_folders:
             print(f"   • {folder}")
 

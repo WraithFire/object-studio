@@ -9,7 +9,7 @@ from PIL import Image
 
 
 def validate_fg_input_folder(folder):
-    print("🔍 Validating files in folder...\n")
+    print("[VALIDATING] Validating files in folder...\n")
 
     images_dict = {}
     frames_xml_root = None
@@ -33,7 +33,7 @@ def validate_fg_input_folder(folder):
         print(
             f"The following required files/folders are missing:\n\n"
             + "\n".join(f"• {m}" for m in missing)
-            + " \n\n❌ Not a valid folder."
+            + " \n\n[ERROR] Not a valid folder."
         )
         return (
             riff_palette_data,
@@ -48,7 +48,7 @@ def validate_fg_input_folder(folder):
         palette_data = f.read()
 
     if not palette_data.startswith(b"RIFF") or b"PAL " not in palette_data[:16]:
-        print("❌ Not a valid RIFF palette file")
+        print("[ERROR] Not a valid RIFF palette file")
     else:
         riff_palette_data = palette_data
 
@@ -57,7 +57,7 @@ def validate_fg_input_folder(folder):
     ]
 
     if not png_files:
-        print("\n❌ No png images found")
+        print("\n[ERROR] No png images found")
         return (
             riff_palette_data,
             images_dict,
@@ -73,7 +73,7 @@ def validate_fg_input_folder(folder):
 
         # Check if the name is exactly 4 digits
         if not (name_without_ext.isdigit() and len(name_without_ext) == 4):
-            print(f"⚠️  {file_name}:")
+            print(f"[WARNING] {file_name}:")
             print(f"    • Invalid name format, should be 4-digit number")
             continue
 
@@ -95,7 +95,7 @@ def validate_fg_input_folder(folder):
 
                 # Print all errors for this file
                 if errors_for_file:
-                    print(f"⚠️  {file_name}:")
+                    print(f"[WARNING] {file_name}:")
                     for error in errors_for_file:
                         print(f"    • {error}")
                 else:
@@ -107,12 +107,12 @@ def validate_fg_input_folder(folder):
                     }
 
         except Exception as e:
-            print(f"⚠️  {file_name}: Error reading file - {str(e)}")
+            print(f"[WARNING] {file_name}: Error reading file - {str(e)}")
             continue
 
     total_available_tiles = 0
     if not images_dict:
-        print("\n❌ No valid images found")
+        print("\n[ERROR] No valid images found")
     else:
         input_folder_name = os.path.basename(folder).lower()
         special_cases_info = special_cases.get(input_folder_name, None)
@@ -173,18 +173,18 @@ def validate_fg_input_folder(folder):
                 )
             if total_available_tiles < max_tiles_required:
                 print(
-                    f"❌ Can't generate frames: Required {max_tiles_required} tiles "
+                    f"[ERROR] Can't generate frames: Required {max_tiles_required} tiles "
                     f"but only {total_available_tiles} available!\n"
                 )
                 frames_xml_root = None
     except Exception as e:
-        print(f"⚠️ Error in frames.xml: {str(e)}")
+        print(f"[WARNING] Error in frames.xml: {str(e)}")
 
     try:
         animations_xml_tree = ET.parse(required_files["animations.xml"])
         animations_xml_root = animations_xml_tree.getroot()
     except Exception as e:
-        print(f"⚠️ Error in animations.xml: {str(e)}")
+        print(f"[WARNING] Error in animations.xml: {str(e)}")
 
     return (
         riff_palette_data,
@@ -230,7 +230,7 @@ def save_tile_map(tile_map, global_palette, debug_output_folder):
     output_path = os.path.join(debug_output_folder, "tilemap.png")
     img.save(output_path)
     print(
-        f"\n✅ Saved tile map ({canvas.shape[1]}x{canvas.shape[0]}) "
+        f"\n[OK] Saved tile map ({canvas.shape[1]}x{canvas.shape[0]}) "
         f"with {min(len(tile_map), TOTAL_TILES)} tiles."
     )
 
@@ -338,7 +338,7 @@ def reconstruct_frames(
 
     if DEBUG:
         print(
-            f"\n🧭 Bounds:"
+            f"\n[INFO] Bounds:"
             f"  min=({global_min_x}, {global_min_y})"
             f"  max=({global_max_x}, {global_max_y})"
         )
@@ -347,8 +347,8 @@ def reconstruct_frames(
         center_y = (global_min_y + global_max_y) / 2
 
         print(
-            f"🎯 Object Center: ({center_x:.2f}, {center_y:.2f})\n"
-            "💡 The coordinate origin is at (256, 512)"
+            f"[INFO] Object Center: ({center_x:.2f}, {center_y:.2f})\n"
+            "[INFO] The coordinate origin is at (256, 512)"
         )
 
         offcenter_x = center_x - 256
@@ -356,7 +356,7 @@ def reconstruct_frames(
         offcenter_distance = (offcenter_x**2 + offcenter_y**2) ** 0.5
 
         print(
-            f"📏 Offset from Origin:"
+            f"[INFO] Offset from Origin:"
             f"  Δx={offcenter_x:.2f}, Δy={offcenter_y:.2f}, "
             f"distance={offcenter_distance:.2f}"
         )
@@ -390,7 +390,7 @@ def reconstruct_frames(
 
     # Reconstruct frames
     for frame_id, chunks_info in frames_dict.items():
-        print(f"\n🧩 Generating Frame {frame_id+1}...")
+        print(f"\n[PROCESSING] Generating Frame {frame_id+1}...")
         layers_list = []
 
         if not chunks_info:
@@ -514,11 +514,11 @@ def reconstruct_frames(
             layer_img.save(out_path, transparency=0)
             if DEBUG:
                 print(
-                    f"✅ Saved: Frame-{frame_id + 1}-Layer-{layer_id + 1}.png",
+                    f"[OK] Saved: Frame-{frame_id + 1}-Layer-{layer_id + 1}.png",
                     f"Palette-{layer_palette_no}",
                 )
 
-    print(f"\n✅ Frames saved to: {output_folder}")
+    print(f"\n[OK] Frames saved to: {output_folder}")
 
     return tile_map_dict
 
@@ -546,7 +546,7 @@ def create_json_from_animation_xml(animations_xml_root, output_folder):
     with open(json_output_path, "w") as f:
         json.dump(data, f, indent=4)
 
-    print(f"\n✅ Config JSON saved to: {json_output_path}")
+    print(f"\n[OK] Config JSON saved to: {json_output_path}")
 
 
 def generate_frames_main(data):
@@ -593,11 +593,11 @@ def generate_frames_main(data):
 
 def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
     if not os.path.exists(parent_folder):
-        print(f"❌ Parent folder does not exist: {parent_folder}")
+        print(f"[ERROR] Parent folder does not exist: {parent_folder}")
         return
 
     if not os.path.isdir(parent_folder):
-        print(f"❌ Path is not a directory: {parent_folder}")
+        print(f"[ERROR] Path is not a directory: {parent_folder}")
         return
 
     subfolders = [
@@ -607,10 +607,10 @@ def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
     ]
 
     if not subfolders:
-        print(f"❌ No subfolders found in: {parent_folder}")
+        print(f"[ERROR] No subfolders found in: {parent_folder}")
         return
 
-    print(f"📁 Found {len(subfolders)} folder(s) to process\n")
+    print(f"[INFO] Found {len(subfolders)} folder(s) to process\n")
     print("=" * 60)
 
     success_count = 0
@@ -637,7 +637,7 @@ def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
             or frames_xml_root is None
             or animations_xml_root is None
         ):
-            print(f"❌ Skipping {subfolder_name} due to validation errors\n")
+            print(f"[ERROR] Skipping {subfolder_name} due to validation errors\n")
             failed_folders.append(subfolder_name)
             continue
 
@@ -654,22 +654,22 @@ def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
             )
 
             generate_frames_main(data)
-            print(f"✅ Successfully processed: {subfolder_name}")
+            print(f"[OK] Successfully processed: {subfolder_name}")
             success_count += 1
 
         except Exception as e:
-            print(f"❌ Error processing {subfolder_name}: {str(e)}")
+            print(f"[ERROR] Error processing {subfolder_name}: {str(e)}")
             failed_folders.append(subfolder_name)
 
     print("\n" + "=" * 60)
-    print("📊 PROCESSING SUMMARY")
+    print("[SUMMARY] PROCESSING SUMMARY")
     print("=" * 60)
-    print(f"📁 Total: {len(subfolders)}")
-    print(f"✅ Successful: {success_count}")
-    print(f"❌ Failed: {len(failed_folders)}")
+    print(f"[INFO] Total: {len(subfolders)}")
+    print(f"[OK] Successful: {success_count}")
+    print(f"[ERROR] Failed: {len(failed_folders)}")
 
     if failed_folders:
-        print("\n🚫 Failed folders:")
+        print("\n[ERROR] Failed folders:")
         for folder in failed_folders:
             print(f"   • {folder}")
 
