@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+<AnimData>
+    <AnimGroupTable>
+        <AnimGroup name="">
+            <AnimSequenceIndex>0</AnimSequenceIndex>
+        </AnimGroup>
+    </AnimGroupTable>
+    <AnimSequenceTable>
+        <AnimSequence name="">
+            <AnimFrame>
+                <Duration>10</Duration>
+                <MetaFrameGroupIndex>0</MetaFrameGroupIndex>
+                <Sprite>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Sprite>
+                <Shadow>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Shadow>
+            </AnimFrame>
+            <AnimFrame>
+                <Duration>10</Duration>
+                <MetaFrameGroupIndex>1</MetaFrameGroupIndex>
+                <Sprite>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Sprite>
+                <Shadow>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Shadow>
+            </AnimFrame>
+            <AnimFrame>
+                <Duration>10</Duration>
+                <MetaFrameGroupIndex>2</MetaFrameGroupIndex>
+                <Sprite>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Sprite>
+                <Shadow>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Shadow>
+            </AnimFrame>
+            <AnimFrame>
+                <Duration>10</Duration>
+                <MetaFrameGroupIndex>3</MetaFrameGroupIndex>
+                <Sprite>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Sprite>
+                <Shadow>
+                    <XOffset>0</XOffset>
+                    <YOffset>0</YOffset>
+                </Shadow>
+            </AnimFrame>
+        </AnimSequence>
+    </AnimSequenceTable>
+</AnimData>

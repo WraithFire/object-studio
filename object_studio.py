@@ -5,16 +5,25 @@ import threading
 import webbrowser
 import tkinter as tk
 import urllib.request
-from data.config import DEBUG, CURRENT_VERSION, RELEASE_API_ENDPOINT, DOCUMENTATION_URL
+from data import (
+    DEBUG,
+    CURRENT_VERSION,
+    RELEASE_API_ENDPOINT,
+    DOCUMENTATION_URL,
+    CHUNK_SIZES,
+)
 from icons.data import (
     SMALL_ICON_DATA,
     LARGE_ICON_DATA,
 )
-from data.constants import CHUNK_SIZES
 from PIL import Image, ImageTk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
-from generators.object_generator import generate_object_main, validate_og_input_folder
-from generators.frames_generator import generate_frames_main, validate_fg_input_folder
+from generators import (
+    generate_object_main,
+    validate_og_input_folder,
+    generate_frames_main,
+    validate_fg_input_folder,
+)
 
 
 def validate_integer_input(new_value):

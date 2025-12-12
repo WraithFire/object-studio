@@ -3,4 +3,3 @@ dist/
 build/
 dev_files/
 *.spec
-test*.py

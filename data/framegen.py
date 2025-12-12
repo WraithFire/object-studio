@@ -1,5 +1,6 @@
-# We need this file because gfxcrunch added unnecessary extra padding to images
-# whose Unk13 was 0x1, and it messes up those objects in game as well :(
+# We need this file for Unk13 objects exported by gfxcrunch
+# because gfxcrunch added unnecessary extra padding to images to make them 64x64px
+# It messes up those objects when imported back into the game :(
 
 special_cases = {
     "s01p01a1": [

@@ -6,8 +6,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from PIL import Image, ImageDraw
-from data.config import DEBUG
-from data.constants import TILE_SIZE, CHUNK_SIZES
+from data import DEBUG, TILE_SIZE, CHUNK_SIZES, ORIENTATION_VALUES
 
 
 def validate_og_input_folder(folder):
@@ -299,13 +298,16 @@ def get_oriented_chunks_data(
     return unique_hashes
 
 
-def get_orientation_values(orientation):
-    return {
-        "original": (0, 0),
-        "flip_h": (0, 1),
-        "flip_v": (1, 0),
-        "flip_both": (1, 1),
-    }.get(orientation, (0, 0))
+def get_relative_orientation(match_orient, saved_orient):
+    FLAGS_ORIENT = {v: k for k, v in ORIENTATION_VALUES.items()}
+
+    mh, mv = ORIENTATION_VALUES[match_orient]
+    sh, sv = ORIENTATION_VALUES[saved_orient]
+
+    oh = mh ^ sh
+    ov = mv ^ sv
+
+    return FLAGS_ORIENT[(oh, ov)]
 
 
 def get_inside_coordinates(x, y, chunk_width, chunk_height):
@@ -334,7 +336,7 @@ def format_chunk_track_dict(chunk_track_dict):
         frame_num, layer_num, palette_num = chunk_data["frame_layer_palette_tuple"]
         coords = chunk_data["coordinates"]
         dim = chunk_data["dimension"]
-        orientation_original = get_orientation_values("original")
+        orientation_original = ORIENTATION_VALUES.get("original", (0, 0))
 
         # Main chunk with precomputed sort key
         main_chunk = {
@@ -356,7 +358,7 @@ def format_chunk_track_dict(chunk_track_dict):
                 "chunk_id": chunk_id,
                 "coordinates": dup["coordinates"],
                 "dimension": dim,
-                "orientation": get_orientation_values(dup["orientation"]),
+                "orientation": ORIENTATION_VALUES.get(dup["orientation"], (0, 0)),
                 "layer": dup_layer,
                 "palette": dup_palette,
                 "_sort_key": (-dup_layer, dup["coordinates"][0], dup["coordinates"][1]),
@@ -725,9 +727,7 @@ def save_remaining_chunks(
         if chunk_height > image_height or chunk_width > image_width:
             continue
 
-        chunk_message = (
-            f"\n[SCANNING] Scanning for remaining chunks of size ({chunk_width}x{chunk_height})"
-        )
+        chunk_message = f"\n[SCANNING] Scanning for remaining chunks of size ({chunk_width}x{chunk_height})"
         if DEBUG:
             chunk_message = f"\n{'-'*59}{chunk_message}\n{'-'*59}\n"
 
@@ -922,9 +922,15 @@ def scan_for_repeated_chunks(
 
             # Check if ANY orientation of this chunk is already in chunk_track_dict
             saved_orient_hash = None
-            for o_chunk_hash, _ in current_chunk_oriented_data.values():
+            saved_orient_name = None
+            original_orient_name = None
+            for o_orient_name, (o_chunk_hash, _) in current_chunk_oriented_data.items():
                 if o_chunk_hash in chunk_track_dict:
                     saved_orient_hash = o_chunk_hash
+                    saved_orient_name = o_orient_name
+                    original_orient_name = get_relative_orientation(
+                        orient_name, saved_orient_name
+                    )
                     break
 
             if saved_orient_hash is None:
@@ -974,13 +980,14 @@ def scan_for_repeated_chunks(
                             saved_orient_hash,
                             ox,
                             oy,
-                            orient_name,
+                            original_orient_name,
                             original_chunk_image_name,
                             original_chunk_flp_tuple,
                         )
 
                 # Update oriented_chunk_hash to use the saved orientation
                 oriented_chunk_hash = saved_orient_hash
+                orient_name = saved_orient_name
 
             # Record current as duplicate
             current_image_valid_coords.difference_update(coords_inside_current_chunk)
@@ -1357,13 +1364,111 @@ def generate_object_main(data):
         )
 
 
-def object_generator_process_multiple_folder(
+def og_process_single_folder(
+    folder_path,
+    min_row_column_density=0.5,
+    displace_object=[0, 0],
+    intra_scan=True,
+    inter_scan=True,
+    scan_chunk_sizes=None,
+    animation_group=None,
+):
+    if not os.path.exists(folder_path):
+        print(f"[ERROR] Folder does not exist: {folder_path}")
+        return False
+
+    if not os.path.isdir(folder_path):
+        print(f"[ERROR] Path is not a directory: {folder_path}")
+        return False
+
+    print(f"[INFO] Processing folder: {folder_path}")
+    print("=" * 60)
+
+    # Validate folder
+    (
+        images_dict,
+        common_image_size,
+        original_shared_palette,
+        max_colors_used,
+        available_frames,
+    ) = validate_og_input_folder(folder_path)
+
+    if (
+        not images_dict
+        or common_image_size is None
+        or original_shared_palette is None
+        or not available_frames
+    ):
+        print(f"[ERROR] Validation failed for folder: {folder_path}")
+        return False
+
+    # Determine animation_group: use provided, then check config.json, then default
+    current_animation_group = animation_group
+
+    if current_animation_group is None:
+        # Try to load from config.json
+        config_path = os.path.join(folder_path, "config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config_data = json.load(f)
+                    current_animation_group = config_data.get("animation_group", None)
+                    if (
+                        current_animation_group is not None
+                        and not current_animation_group
+                    ):
+                        print(
+                            f"[WARNING] config.json found but animation_group is empty, using default"
+                        )
+                        current_animation_group = None
+            except Exception as e:
+                print(f"[WARNING] Error reading config.json: {str(e)}, using default")
+                current_animation_group = None
+
+        # Use default if still None
+        if current_animation_group is None:
+            current_animation_group = [
+                [{"frame": frame_num, "duration": 10} for frame_num in available_frames]
+            ]
+
+    try:
+        image_width, image_height = common_image_size
+
+        # Use provided chunk sizes or default to all
+        current_chunk_sizes = scan_chunk_sizes if scan_chunk_sizes else CHUNK_SIZES
+
+        data = (
+            folder_path,
+            images_dict,
+            original_shared_palette,
+            max_colors_used,
+            image_height,
+            image_width,
+            available_frames,
+            min_row_column_density,
+            displace_object,
+            current_animation_group,
+            current_chunk_sizes,
+            intra_scan,
+            inter_scan,
+        )
+
+        generate_object_main(data)
+        print(f"[OK] Successfully processed: {folder_path}")
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] Error processing {folder_path}: {str(e)}")
+        return False
+
+
+def og_process_multiple_folder(
     parent_folder,
-    min_row_column_density,
-    displace_object,
-    intra_scan,
-    inter_scan,
-    scan_chunk_sizes,
+    min_row_column_density=0.5,
+    displace_object=[0, 0],
+    intra_scan=True,
+    inter_scan=True,
+    scan_chunk_sizes=None,
 ):
     if not os.path.exists(parent_folder):
         print(f"[ERROR] Parent folder does not exist: {parent_folder}")
@@ -1395,80 +1500,18 @@ def object_generator_process_multiple_folder(
         print(f"\n[{idx}/{len(subfolders)}] Processing: {subfolder_name}")
         print("=" * 60)
 
-        (
-            images_dict,
-            common_image_size,
-            original_shared_palette,
-            max_colors_used,
-            available_frames,
-        ) = validate_og_input_folder(subfolder_path)
+        success = og_process_single_folder(
+            folder_path=subfolder_path,
+            min_row_column_density=min_row_column_density,
+            displace_object=displace_object,
+            intra_scan=intra_scan,
+            inter_scan=inter_scan,
+            scan_chunk_sizes=scan_chunk_sizes,
+        )
 
-        if (
-            not images_dict
-            or common_image_size is None
-            or original_shared_palette is None
-            or not available_frames
-        ):
-            print(f"[ERROR] Skipping {subfolder_name} due to validation errors\n")
-            failed_folders.append(subfolder_name)
-            continue
-
-        config_path = os.path.join(subfolder_path, "config.json")
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as f:
-                    config_data = json.load(f)
-                    current_animation_group = config_data.get("animation_group", [])
-                    if not current_animation_group:
-                        print(
-                            f"[WARNING] config.json found but animation_group is empty, using default"
-                        )
-                        current_animation_group = [
-                            [
-                                {"frame": frame_num, "duration": 10}
-                                for frame_num in available_frames
-                            ]
-                        ]
-            except Exception as e:
-                print(f"[WARNING] Error reading config.json: {str(e)}, using default")
-                current_animation_group = [
-                    [
-                        {"frame": frame_num, "duration": 10}
-                        for frame_num in available_frames
-                    ]
-                ]
-        else:
-            current_animation_group = [
-                [{"frame": frame_num, "duration": 10} for frame_num in available_frames]
-            ]
-
-        try:
-            image_width, image_height = common_image_size
-
-            current_chunk_sizes = scan_chunk_sizes if scan_chunk_sizes else CHUNK_SIZES
-
-            data = (
-                subfolder_path,
-                images_dict,
-                original_shared_palette,
-                max_colors_used,
-                image_height,
-                image_width,
-                available_frames,
-                min_row_column_density,
-                displace_object,
-                current_animation_group,
-                current_chunk_sizes,
-                intra_scan,
-                inter_scan,
-            )
-
-            generate_object_main(data)
-            print(f"[OK] Successfully processed: {subfolder_name}")
+        if success:
             success_count += 1
-
-        except Exception as e:
-            print(f"[ERROR] Error processing {subfolder_name}: {str(e)}")
+        else:
             failed_folders.append(subfolder_name)
 
     print("\n" + "=" * 60)

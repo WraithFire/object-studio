@@ -2,9 +2,7 @@ import os
 import json
 import numpy as np
 import xml.etree.ElementTree as ET
-from data.config import DEBUG
-from data.constants import TILE_SIZE, CHUNK_SIZES
-from data.framegen import special_cases
+from data import DEBUG, TILE_SIZE, CHUNK_SIZES, special_cases
 from PIL import Image
 
 
@@ -165,11 +163,11 @@ def validate_fg_input_folder(folder):
 
         if not normal_mode:
             if DEBUG:
-                print(f"Tile Mode Analysis:")
+                print(f"\n[INFO] Tile Mode Analysis:")
                 print(f" • Total tiles available: {total_available_tiles}")
                 print(f" • Maximum tiles required: {max_tiles_required}")
                 print(
-                    f" • Surplus/Deficit: {total_available_tiles - max_tiles_required:+d} tiles\n"
+                    f" • Surplus/Deficit: {total_available_tiles - max_tiles_required:+d} tiles"
                 )
             if total_available_tiles < max_tiles_required:
                 print(
@@ -591,7 +589,60 @@ def generate_frames_main(data):
     create_json_from_animation_xml(animations_xml_root, output_folder)
 
 
-def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
+def fg_process_single_folder(folder_path, avoid_overlap="none"):
+    if not os.path.exists(folder_path):
+        print(f"[ERROR] Folder does not exist: {folder_path}")
+        return False
+
+    if not os.path.isdir(folder_path):
+        print(f"[ERROR] Path is not a directory: {folder_path}")
+        return False
+
+    print("-" * 60)
+    print(f"[INFO] Processing folder: {folder_path}")
+    print("-" * 60 + "\n")
+
+    # Validate folder
+    (
+        riff_palette_data,
+        images_dict,
+        frames_xml_root,
+        animations_xml_root,
+        normal_mode,
+        special_cases_info,
+    ) = validate_fg_input_folder(folder_path)
+
+    if (
+        riff_palette_data is None
+        or not images_dict
+        or frames_xml_root is None
+        or animations_xml_root is None
+    ):
+        print(f"[ERROR] Validation failed for folder: {folder_path}")
+        return False
+
+    try:
+        data = (
+            normal_mode,
+            special_cases_info,
+            folder_path,
+            riff_palette_data,
+            images_dict,
+            frames_xml_root,
+            animations_xml_root,
+            avoid_overlap,
+        )
+
+        generate_frames_main(data)
+        print(f"\n[OK] Successfully processed: {folder_path}\n")
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] Error processing {folder_path}: {str(e)}")
+        return False
+
+
+def fg_process_multiple_folder(parent_folder, avoid_overlap="none"):
     if not os.path.exists(parent_folder):
         print(f"[ERROR] Parent folder does not exist: {parent_folder}")
         return
@@ -611,7 +662,6 @@ def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
         return
 
     print(f"[INFO] Found {len(subfolders)} folder(s) to process\n")
-    print("=" * 60)
 
     success_count = 0
     failed_folders = []
@@ -619,54 +669,22 @@ def frames_generator_process_multiple_folder(parent_folder, avoid_overlap):
     for idx, subfolder_name in enumerate(subfolders, 1):
         subfolder_path = os.path.join(parent_folder, subfolder_name)
 
-        print(f"\n[{idx}/{len(subfolders)}] Processing: {subfolder_name}")
-        print("=" * 60)
+        success = fg_process_single_folder(
+            folder_path=subfolder_path,
+            avoid_overlap=avoid_overlap,
+        )
 
-        (
-            riff_palette_data,
-            images_dict,
-            frames_xml_root,
-            animations_xml_root,
-            normal_mode,
-            special_cases_info,
-        ) = validate_fg_input_folder(subfolder_path)
-
-        if (
-            riff_palette_data is None
-            or not images_dict
-            or frames_xml_root is None
-            or animations_xml_root is None
-        ):
-            print(f"[ERROR] Skipping {subfolder_name} due to validation errors\n")
-            failed_folders.append(subfolder_name)
-            continue
-
-        try:
-            data = (
-                normal_mode,
-                special_cases_info,
-                subfolder_path,
-                riff_palette_data,
-                images_dict,
-                frames_xml_root,
-                animations_xml_root,
-                avoid_overlap,
-            )
-
-            generate_frames_main(data)
-            print(f"[OK] Successfully processed: {subfolder_name}")
+        if success:
             success_count += 1
-
-        except Exception as e:
-            print(f"[ERROR] Error processing {subfolder_name}: {str(e)}")
+        else:
             failed_folders.append(subfolder_name)
 
-    print("\n" + "=" * 60)
+    print("=" * 60)
     print("[SUMMARY] PROCESSING SUMMARY")
     print("=" * 60)
     print(f"[INFO] Total: {len(subfolders)}")
-    print(f"[OK] Successful: {success_count}")
-    print(f"[ERROR] Failed: {len(failed_folders)}")
+    print(f"[INFO] Successful: {success_count}")
+    print(f"[INFO] Failed: {len(failed_folders)}")
 
     if failed_folders:
         print("\n[ERROR] Failed folders:")

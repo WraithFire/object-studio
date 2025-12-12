@@ -440,43 +440,46 @@ The unrestricted mode. No overlap detection is performed.
 
 # Bulk Conversion
 
-If you’re running **Object Studio** from source, you can perform **bulk conversions** using the built-in helper functions from the `generators` modules.
+If you're running **Object Studio** from source, you can perform **bulk conversions** using the built-in helper functions from the `generators` modules.
 
-Below is an example of how you might call them in your script:
+### Object Generator
 
 ```python
-from generators.frames_generator import frames_generator_process_multiple_folder
-from generators.object_generator import object_generator_process_multiple_folder
+from generators import og_process_multiple_folder
 
-# Bulk convert all frames folders into objects
-
-og_parent_folder = "C:\\Users\\Desktop\\gfx_crunch\\frame_folders"
-
-scan_chunk_sizes = [
-    (64, 64),
-    (32, 32),
-    (16, 16)
-]
-
-object_generator_process_multiple_folder(
-    parent_folder=og_parent_folder,
+og_process_multiple_folder(
+    parent_folder,
     min_row_column_density=0.5,
-    displace_object=(0, 0),
+    displace_object=[0, 0],
     intra_scan=True,
     inter_scan=True,
-    scan_chunk_sizes=scan_chunk_sizes,
-)
-
-# Bulk convert all object folders to frames
-
-fg_parent_folder = "C:\\Users\\Desktop\\gfx_crunch\\object_folders"
-
-frames_generator_process_multiple_folder(
-    parent_folder=fg_parent_folder,
-    avoid_overlap="none",
+    scan_chunk_sizes=None,
 )
 ```
 
-When running **bulk object generation**, each folder can include a **`config.json`** file to define animation settings.
+**Arguments:**
 
-If a folder doesn’t include one, the tool will automatically use a **default animation** for that object.
+-   `parent_folder` **(required)**: Path to directory containing subfolders with frame images
+-   `min_row_column_density` (optional, default: `0.5`): Float between 0.0 and 1.0
+-   `displace_object` (optional, default: `[0, 0]`): List of two integers `[x, y]`
+-   `intra_scan` (optional, default: `True`): Boolean
+-   `inter_scan` (optional, default: `True`): Boolean
+-   `scan_chunk_sizes` (optional, default: `None`): List like `[(32, 32), (16, 16)]`
+
+**Note:** Each subfolder can include a `config.json` file for animation settings. If missing, uses default animation (all frames with duration 10).
+
+### Frames Generator
+
+```python
+from generators import fg_process_multiple_folder
+
+fg_process_multiple_folder(
+    parent_folder,
+    avoid_overlap="none"
+)
+```
+
+**Arguments:**
+
+-   `parent_folder` **(required)**: Path to directory containing subfolders with object data
+-   `avoid_overlap` (optional, default: `"none"`): One of `"pixel"`, `"chunk"`, `"palette"`, or `"none"`

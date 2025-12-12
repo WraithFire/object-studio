@@ -14,3 +14,10 @@ CHUNK_SIZES = [
     (8, 16),
     (8, 8),
 ]
+
+ORIENTATION_VALUES = {
+    "original": (0, 0),
+    "flip_h": (0, 1),
+    "flip_v": (1, 0),
+    "flip_both": (1, 1),
+}
