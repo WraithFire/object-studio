@@ -6,16 +6,27 @@ Tests the full round-trip: frames -> objects -> frames
 
 import sys
 import os
+import json
 import hashlib
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List
 
 # Add project root to path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from generators import og_process_multiple_folder, fg_process_multiple_folder
+
+
+@dataclass
+class TestResult:
+    success: bool
+    differences: int
+    was_generated: bool
+    differences_log: List[str]
+    part_name: str
 
 
 def calculate_file_checksum(file_path):
@@ -31,134 +42,147 @@ def delete_debug_folders(directory, base_path=None):
     if not directory.exists():
         return
 
-    if base_path is None:
-        base_path = directory
-    else:
-        base_path = Path(base_path)
-
-    debug_folders = []
-    for path in directory.rglob("DEBUG"):
-        if path.is_dir():
-            debug_folders.append(path)
-
-    for debug_folder in sorted(debug_folders):
-        shutil.rmtree(debug_folder)
-        relative_path = debug_folder.relative_to(base_path)
-        print(f"  🗑️  Deleted folder: {relative_path}")
+    base_path = Path(base_path) if base_path else directory
+    for debug_folder in sorted(directory.rglob("DEBUG")):
+        if debug_folder.is_dir():
+            shutil.rmtree(debug_folder)
+            print(f"  🗑️  Deleted folder: {debug_folder.relative_to(base_path)}")
 
 
-def get_directory_checksums(directory):
-    checksums = {}
+def get_all_files(directory):
     directory = Path(directory)
-
     if not directory.exists():
-        return checksums
+        return {}
 
+    files = {}
     for file_path in sorted(directory.rglob("*")):
         if file_path.is_file():
-            relative_path = file_path.relative_to(directory)
-            checksums[str(relative_path)] = calculate_file_checksum(file_path)
+            rel_path = str(file_path.relative_to(directory))
+            if not rel_path.endswith("config.json"):
+                files[rel_path] = file_path
+    return files
 
-    return checksums
+
+def compare_config_json(gen_path, ref_path):
+    try:
+        with open(gen_path, "r", encoding="utf-8") as f:
+            gen_data = json.load(f)
+        with open(ref_path, "r", encoding="utf-8") as f:
+            ref_data = json.load(f)
+        return gen_data.get("animation_group") == ref_data.get("animation_group")
+    except (json.JSONDecodeError, KeyError, FileNotFoundError):
+        return False
 
 
 def compare_directories(generated_dir, reference_dir):
-    generated_checksums = get_directory_checksums(generated_dir)
-    reference_checksums = get_directory_checksums(reference_dir)
+    gen_dir = Path(generated_dir)
+    ref_dir = Path(reference_dir)
 
     differences = []
-    all_files = set(generated_checksums.keys()) | set(reference_checksums.keys())
+    file_difference_count = 0
 
+    # Get all files (excluding config.json)
+    gen_files = get_all_files(generated_dir)
+    ref_files = get_all_files(reference_dir)
+    all_files = set(gen_files.keys()) | set(ref_files.keys())
+
+    # Compare regular files using checksums
     for file_path in sorted(all_files):
-        gen_checksum = generated_checksums.get(file_path)
-        ref_checksum = reference_checksums.get(file_path)
+        gen_file = gen_files.get(file_path)
+        ref_file = ref_files.get(file_path)
 
-        if gen_checksum is None:
+        if gen_file is None:
             differences.append(f"Missing in generated: {file_path}")
-        elif ref_checksum is None:
+            file_difference_count += 1
+        elif ref_file is None:
             differences.append(f"Extra in generated: {file_path}")
-        elif gen_checksum != ref_checksum:
-            differences.append(f"Checksum mismatch: {file_path}")
-            differences.append(f"  Generated: {gen_checksum[:16]}...")
-            differences.append(f"  Reference: {ref_checksum[:16]}...")
+            file_difference_count += 1
+        else:
+            gen_checksum = calculate_file_checksum(gen_file)
+            ref_checksum = calculate_file_checksum(ref_file)
+            if gen_checksum != ref_checksum:
+                differences.append(f"Checksum mismatch: {file_path}")
+                differences.append(f"  Generated: {gen_checksum[:16]}...")
+                differences.append(f"  Reference: {ref_checksum[:16]}...")
+                file_difference_count += 1
 
-    return len(differences) == 0, differences
+    # Compare config.json files separately
+    for config_file in sorted(gen_dir.rglob("config.json")):
+        if config_file.is_file():
+            rel_path = str(config_file.relative_to(gen_dir))
+            ref_config = ref_dir / rel_path
 
+            if not ref_config.exists():
+                differences.append(f"Extra in generated: {rel_path}")
+                file_difference_count += 1
+            elif not compare_config_json(config_file, ref_config):
+                differences.append(
+                    f"Config mismatch: {rel_path} (animation_group differs)"
+                )
+                file_difference_count += 1
 
-def is_reference_empty(reference_folder):
-    return (
-        not os.path.exists(reference_folder)
-        or len(
-            [
-                f
-                for f in os.listdir(reference_folder)
-                if os.path.isdir(os.path.join(reference_folder, f))
-            ]
-        )
-        == 0
-    )
+    # Check for config.json files in reference that don't exist in generated
+    for config_file in sorted(ref_dir.rglob("config.json")):
+        if config_file.is_file():
+            rel_path = str(config_file.relative_to(ref_dir))
+            gen_config = gen_dir / rel_path
+            if not gen_config.exists():
+                differences.append(f"Missing in generated: {rel_path}")
+                file_difference_count += 1
 
-
-def get_subfolders(folder):
-    if not os.path.exists(folder):
-        return []
-    return [
-        f for f in sorted(os.listdir(folder)) if os.path.isdir(os.path.join(folder, f))
-    ]
-
-
-def copy_generated_to_reference(input_folder, reference_folder, output_subdir_name):
-    os.makedirs(reference_folder, exist_ok=True)
-
-    for subfolder_name in get_subfolders(input_folder):
-        subfolder_path = os.path.join(input_folder, subfolder_name)
-        generated_dir = os.path.join(subfolder_path, output_subdir_name)
-        reference_dir = os.path.join(reference_folder, subfolder_name)
-
-        if os.path.exists(generated_dir):
-            if os.path.exists(reference_dir):
-                shutil.rmtree(reference_dir)
-            shutil.copytree(generated_dir, reference_dir)
-            print(f"  Copied: {subfolder_name}/")
+    return len(differences) == 0, differences, file_difference_count
 
 
 def compare_subfolders(input_folder, reference_folder, output_subdir_name, item_name):
     all_match = True
     total_differences = 0
+    all_differences_log = []
 
-    for subfolder_name in get_subfolders(input_folder):
-        subfolder_path = os.path.join(input_folder, subfolder_name)
-        generated_dir = os.path.join(subfolder_path, output_subdir_name)
-        reference_dir = os.path.join(reference_folder, subfolder_name)
+    input_path = Path(input_folder)
+    subfolders = (
+        sorted(f.name for f in input_path.iterdir() if f.is_dir())
+        if input_path.exists()
+        else []
+    )
+    for subfolder_name in subfolders:
+        generated_dir = Path(input_folder) / subfolder_name / output_subdir_name
+        reference_dir = Path(reference_folder) / subfolder_name
 
         print(f"Comparing: {subfolder_name}")
 
-        if not os.path.exists(generated_dir):
-            print(f"  ❌ Generated {item_name} folder not found: {generated_dir}")
+        if not generated_dir.exists():
+            error_msg = f"Generated {item_name} folder not found: {generated_dir}"
+            print(f"  ❌ {error_msg}")
             all_match = False
             total_differences += 1
+            all_differences_log.append(f"[{subfolder_name}] {error_msg}")
             continue
 
-        if not os.path.exists(reference_dir):
+        if not reference_dir.exists():
             print(f"  ⚠️  Reference folder not found: {reference_dir}")
             continue
 
-        match, differences = compare_directories(generated_dir, reference_dir)
+        match, differences, file_difference_count = compare_directories(
+            generated_dir, reference_dir
+        )
 
         if match:
-            num_files = len(get_directory_checksums(generated_dir))
+            num_files = len(get_all_files(generated_dir))
             print(f"  ✅ Match! ({num_files} files)")
         else:
-            print(f"  ❌ Mismatch! ({len(differences)} differences)")
-            for diff in differences[:5]:  # Show first 5 differences
+            file_text = f"{file_difference_count} file{'s' if file_difference_count != 1 else ''} differ"
+            print(f"  ❌ Mismatch! ({file_text})")
+            for diff in differences[:5]:
                 print(f"    {diff}")
             if len(differences) > 5:
-                print(f"    ... and {len(differences) - 5} more differences")
+                print(f"    ... and {len(differences) - 5} more detail lines")
             all_match = False
-            total_differences += len(differences)
+            total_differences += file_difference_count
+            all_differences_log.append(f"\n[{subfolder_name}]")
+            all_differences_log.extend(f"  {diff}" for diff in differences)
         print()
 
-    return all_match, total_differences
+    return all_match, total_differences, all_differences_log
 
 
 def test_generator(
@@ -170,7 +194,7 @@ def test_generator(
     item_name: str,
     part_name: str,
     part_number: str,
-):
+) -> TestResult:
     print("\n" + "=" * 70)
     print(f"{part_number}: {part_name}")
     print("=" * 70)
@@ -178,70 +202,77 @@ def test_generator(
     print(f"Reference folder: {reference_folder}")
     print()
 
-    # Check if reference folder is empty
-    reference_is_empty = is_reference_empty(reference_folder)
+    ref_path = Path(reference_folder)
+    reference_is_empty = not ref_path.exists() or not any(ref_path.iterdir())
 
-    # Run the generator
     print(f"Running {item_name} generator...")
     generator_func(input_folder, **generator_args)
     print()
 
-    # Delete DEBUG folders from processing folders
     print("Deleting Temporary folders from processing folders...")
-    test_dir = os.path.dirname(input_folder)
-    for subfolder_name in get_subfolders(input_folder):
-        subfolder_path = os.path.join(input_folder, subfolder_name)
-        delete_debug_folders(subfolder_path, base_path=test_dir)
+    test_dir = Path(input_folder).parent
+    input_path = Path(input_folder)
+    subfolders = (
+        sorted(f.name for f in input_path.iterdir() if f.is_dir())
+        if input_path.exists()
+        else []
+    )
+    for subfolder_name in subfolders:
+        delete_debug_folders(input_path / subfolder_name, base_path=test_dir)
     print()
 
     if reference_is_empty:
         print(f"⚠️  Reference folder '{reference_folder}' is empty or doesn't exist.")
         print(f"📋 Copying generated {item_name} to reference folder...")
-        copy_generated_to_reference(input_folder, reference_folder, output_subdir_name)
-        print("✅ Copy complete! Using generated files as new reference.\n")
-        return True, 0, True  # (success, differences, was_generated)
+        ref_path = Path(reference_folder)
+        ref_path.mkdir(parents=True, exist_ok=True)
 
-    # Compare results
-    all_match, total_differences = compare_subfolders(
+        input_path = Path(input_folder)
+        subfolders = (
+            sorted(f.name for f in input_path.iterdir() if f.is_dir())
+            if input_path.exists()
+            else []
+        )
+        for subfolder_name in subfolders:
+            gen_dir = input_path / subfolder_name / output_subdir_name
+            ref_dir = ref_path / subfolder_name
+            if gen_dir.exists():
+                if ref_dir.exists():
+                    shutil.rmtree(ref_dir)
+                shutil.copytree(gen_dir, ref_dir)
+                print(f"  Copied: {subfolder_name}/")
+        print("✅ Copy complete! Using generated files as new reference.\n")
+        return TestResult(True, 0, True, [], part_name)
+
+    all_match, total_differences, differences_log = compare_subfolders(
         input_folder, reference_folder, output_subdir_name, item_name
     )
-
-    return all_match, total_differences, False  # (success, differences, was_generated)
+    return TestResult(all_match, total_differences, False, differences_log, part_name)
 
 
 def cleanup_generated_folders(frames_folder, objects_folder):
     print("Cleaning up generated folders...")
 
-    # Clean up object folders from frames_folder
-    for subfolder_name in get_subfolders(frames_folder):
-        subfolder_path = os.path.join(frames_folder, subfolder_name)
-        generated_object_dir = os.path.join(subfolder_path, "object")
-        if os.path.exists(generated_object_dir):
-            shutil.rmtree(generated_object_dir)
-            print(f"  Deleted: {generated_object_dir}")
-
-    # Clean up frames folders from objects_folder
-    for subfolder_name in get_subfolders(objects_folder):
-        subfolder_path = os.path.join(objects_folder, subfolder_name)
-        generated_frames_dir = os.path.join(subfolder_path, "frames")
-        if os.path.exists(generated_frames_dir):
-            shutil.rmtree(generated_frames_dir)
-            print(f"  Deleted: {generated_frames_dir}")
-
+    for folder_name, subdir in [(frames_folder, "object"), (objects_folder, "frames")]:
+        folder = Path(folder_name)
+        if folder.exists():
+            subfolders = sorted(f.name for f in folder.iterdir() if f.is_dir())
+            for subfolder_name in subfolders:
+                gen_dir = folder / subfolder_name / subdir
+                if gen_dir.exists():
+                    shutil.rmtree(gen_dir)
+                    print(f"  Deleted: {gen_dir}")
     print()
 
 
 def main():
-    test_dir = os.path.dirname(os.path.abspath(__file__))
-    frames_folder = os.path.join(test_dir, "frames-files")
-    objects_folder = os.path.join(test_dir, "objects-files")
-    frames_reference_folder = frames_folder
-    objects_reference_folder = objects_folder
+    test_dir = Path(__file__).parent
+    frames_folder = test_dir / "frames-files"
+    objects_folder = test_dir / "objects-files"
 
-    # Create frames-files directory if it doesn't exist
-    if not os.path.exists(frames_folder):
+    if not frames_folder.exists():
         print(f"📁 Creating frames-files directory: {frames_folder}")
-        os.makedirs(frames_folder, exist_ok=True)
+        frames_folder.mkdir(parents=True, exist_ok=True)
         print()
 
     print("=" * 70)
@@ -249,9 +280,9 @@ def main():
     print("=" * 70)
 
     # Part 1: Test Object Generator (frames -> objects)
-    og_success, og_differences, og_was_generated = test_generator(
-        input_folder=frames_folder,
-        reference_folder=objects_reference_folder,
+    og_result = test_generator(
+        input_folder=str(frames_folder),
+        reference_folder=str(objects_folder),
         generator_func=og_process_multiple_folder,
         generator_args={
             "min_row_column_density": 0.5,
@@ -267,64 +298,84 @@ def main():
     )
 
     # Clean up object folders from frames-files before Part 2
-    # (so they don't interfere with frames comparison)
     print("\nCleaning up object folders from frames-files before Part 2...")
-    for subfolder_name in get_subfolders(frames_folder):
-        object_dir = os.path.join(frames_folder, subfolder_name, "object")
-        if os.path.exists(object_dir):
+    subfolders = (
+        sorted(f.name for f in frames_folder.iterdir() if f.is_dir())
+        if frames_folder.exists()
+        else []
+    )
+    for subfolder_name in subfolders:
+        object_dir = frames_folder / subfolder_name / "object"
+        if object_dir.exists():
             shutil.rmtree(object_dir)
             print(f"  Deleted: {object_dir}")
     print()
 
     # Part 2: Test Frames Generator (objects -> frames)
-    fg_success, fg_differences, fg_was_generated = test_generator(
-        input_folder=objects_folder,
-        reference_folder=frames_reference_folder,
+    fg_result = test_generator(
+        input_folder=str(objects_folder),
+        reference_folder=str(frames_folder),
         generator_func=fg_process_multiple_folder,
-        generator_args={
-            "avoid_overlap": "none",
-        },
+        generator_args={"avoid_overlap": "none"},
         output_subdir_name="frames",
         item_name="frames",
         part_name="Frames Generator Test (objects -> frames)",
         part_number="PART 2",
     )
 
-    # Cleanup
-    cleanup_generated_folders(frames_folder, objects_folder)
+    cleanup_generated_folders(str(frames_folder), str(objects_folder))
 
     # Print summary
     print("=" * 70)
     print("TEST SUMMARY")
     print("=" * 70)
 
-    og_status = "✅ PASSED" if og_success else "❌ FAILED"
-    og_note = (
-        " (files generated, not compared)"
-        if og_was_generated
-        else f" ({og_differences} differences)"
-    )
-    print(f"Object Generator:  {og_status}{og_note}")
-
-    fg_status = "✅ PASSED" if fg_success else "❌ FAILED"
-    fg_note = (
-        " (files generated, not compared)"
-        if fg_was_generated
-        else f" ({fg_differences} differences)"
-    )
-    print(f"Frames Generator:  {fg_status}{fg_note}")
+    for result, name in [
+        (og_result, "Object Generator"),
+        (fg_result, "Frames Generator"),
+    ]:
+        status = "✅ PASSED" if result.success else "❌ FAILED"
+        note = (
+            " (files generated, not compared)"
+            if result.was_generated
+            else f" ({result.differences} differences)"
+        )
+        print(f"{name}:  {status}{note}")
     print()
 
-    overall_success = og_success and fg_success
+    overall_success = og_result.success and fg_result.success
+
+    # Write log file if tests failed
+    if not overall_success:
+        log_file_path = test_dir / "test_run_log.txt"
+        with open(log_file_path, "w", encoding="utf-8") as log_file:
+            log_file.write("=" * 70 + "\n")
+            log_file.write("TEST RUN LOG - All File Mismatches\n")
+            log_file.write("=" * 70 + "\n\n")
+
+            for result in [og_result, fg_result]:
+                if not result.success and result.differences_log:
+                    log_file.write(f"{result.part_name}\n")
+                    log_file.write("-" * 70 + "\n")
+                    log_file.write("\n".join(result.differences_log))
+                    log_file.write("\n\n")
+
+            total_diff = og_result.differences + fg_result.differences
+            log_file.write("=" * 70 + "\n")
+            log_file.write(f"Total differences: {total_diff} files\n")
+            log_file.write("=" * 70 + "\n")
+
+        print(f"📝 Detailed log written to: {log_file_path}")
+        print()
+
     if overall_success:
-        if og_was_generated or fg_was_generated:
+        if og_result.was_generated or fg_result.was_generated:
             print("✅ All tests passed! Generated files were saved as new reference.")
         else:
             print("✅ All tests passed! Generated files match reference files.")
     else:
-        print(
-            f"❌ Some tests failed! Total differences: {og_differences + fg_differences}"
-        )
+        total_diff = og_result.differences + fg_result.differences
+        print(f"❌ Some tests failed! Total differences: {total_diff}")
     print("=" * 70)
 
     return overall_success

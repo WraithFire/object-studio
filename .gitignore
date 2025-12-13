@@ -3,3 +3,4 @@ dist/
 build/
 dev_files/
 *.spec
+test_run_log.txt
