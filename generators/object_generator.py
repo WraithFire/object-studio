@@ -24,7 +24,7 @@ def validate_og_input_folder(folder):
     png_files = [f for f in os.listdir(folder) if f.lower().endswith(".png")]
 
     if not png_files:
-        print("\n[ERROR] No png images found")
+        print("[ERROR] No png images found")
         return (
             images_dict,
             common_image_size,
@@ -1236,7 +1236,7 @@ def give_object_overview(
     for frame_no, (frame, chunks) in enumerate(formatted_chunk_track_dict.items()):
         total_chunks = len(chunks)
         print(
-            f"{frame}: Total Chunks = {total_chunks} and Memory = {frame_memory_usage[frame_no]}"
+            f"[INFO] {frame}: Total Chunks = {total_chunks} and Memory Usage = {frame_memory_usage[frame_no]}"
         )
         if total_chunks > 108:
             print(

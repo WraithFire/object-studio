@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import queue
 import threading
 import webbrowser
 import tkinter as tk
@@ -131,7 +132,7 @@ class AnimationSequenceDialog:
     def _build_window(self, parent, title):
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("650x600")
+        self.dialog.geometry("700x600")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         self.dialog.focus_set()
@@ -458,7 +459,7 @@ class AnimationViewer:
     def _create_window(self, parent, title):
         self.window = tk.Toplevel(parent)
         self.window.title(title)
-        self.window.geometry("500x500")
+        self.window.geometry("700x600")
         self.window.transient(parent)
         self.window.grab_set()
         self.window.focus_set()
@@ -701,6 +702,10 @@ class ObjectStudioGUI:
         self.fg_animations_xml_root = None
 
         self.validate_integer_input = (self.root.register(validate_integer_input), "%P")
+
+        # Thread-safe stdout queue
+        self.stdout_queue = queue.Queue(maxsize=1000)
+        self._stdout_processor_scheduled = threading.Event()
 
         self.create_widgets()
         self.redirect_stdout_to_console()
@@ -1133,27 +1138,28 @@ class ObjectStudioGUI:
         else:
             prev_animation_group = self.animation_group
 
-        self.prepare_object_generator_data()
+        def set_animation_for_folder():
+            if prev_animation_group:
+                result = self.validate_config_values(
+                    animation_group=prev_animation_group,
+                )
 
-        if prev_animation_group:
-            result = self.validate_config_values(
-                animation_group=prev_animation_group,
-            )
+                valid_values = result["valid_values"]
 
-            valid_values = result["valid_values"]
-
-            if "animation_group" in valid_values:
-                self.animation_group = valid_values["animation_group"]
+                if "animation_group" in valid_values:
+                    self.animation_group = valid_values["animation_group"]
+                else:
+                    self.animation_group = []
             else:
                 self.animation_group = []
-        else:
-            self.animation_group = []
 
-        if not self.animation_group and self.og_available_frames:
-            min_frame = self.og_available_frames[0]
-            self.animation_group = [[{"frame": min_frame, "duration": 30}]]
+            if not self.animation_group and self.og_available_frames:
+                min_frame = self.og_available_frames[0]
+                self.animation_group = [[{"frame": min_frame, "duration": 30}]]
 
-        self.update_animation_group_listbox()
+            self.update_animation_group_listbox()
+
+        self.prepare_object_generator_data(on_complete=set_animation_for_folder)
 
     def browse_recon_folder(self):
         folder = filedialog.askdirectory(
@@ -1388,97 +1394,99 @@ class ObjectStudioGUI:
                 return
 
             self.input_folder.set(loaded_folder)
-            self.prepare_object_generator_data()
 
-            # ---- Validate config values ----
-            result = self.validate_config_values(
-                animation_group=config.get("animation_group"),
-                min_density=config.get("min_density"),
-                displace_x=config.get("displace_x"),
-                displace_y=config.get("displace_y"),
-                intrascan=config.get("intrascan"),
-                interscan=config.get("interscan"),
-                scan_chunk_sizes=config.get("scan_chunk_sizes"),
-            )
+            def apply_config_values():
+                # ---- Validate config values ----
+                result = self.validate_config_values(
+                    animation_group=config.get("animation_group"),
+                    min_density=config.get("min_density"),
+                    displace_x=config.get("displace_x"),
+                    displace_y=config.get("displace_y"),
+                    intrascan=config.get("intrascan"),
+                    interscan=config.get("interscan"),
+                    scan_chunk_sizes=config.get("scan_chunk_sizes"),
+                )
 
-            valid = result["valid_values"]
-            invalid_values = result["invalid_values"]
+                valid = result["valid_values"]
+                invalid_values = result["invalid_values"]
 
-            # ---- Apply valid values ----
-            if "min_density" in valid:
-                self.min_density.set(valid["min_density"])
-                self.density_label.config(text=f"{self.min_density.get()}%")
-            else:
-                self.min_density.set(50)
-                self.density_label.config(text="50%")
+                # ---- Apply valid values ----
+                if "min_density" in valid:
+                    self.min_density.set(valid["min_density"])
+                    self.density_label.config(text=f"{self.min_density.get()}%")
+                else:
+                    self.min_density.set(50)
+                    self.density_label.config(text="50%")
 
-            if "displace_x" in valid:
-                self.displace_x.set(valid["displace_x"])
-            else:
-                self.displace_x.set(0)
+                if "displace_x" in valid:
+                    self.displace_x.set(valid["displace_x"])
+                else:
+                    self.displace_x.set(0)
 
-            if "displace_y" in valid:
-                self.displace_y.set(valid["displace_y"])
-            else:
-                self.displace_y.set(0)
+                if "displace_y" in valid:
+                    self.displace_y.set(valid["displace_y"])
+                else:
+                    self.displace_y.set(0)
 
-            if "intrascan" in valid:
-                self.intrascan_var.set(valid["intrascan"])
-            else:
-                self.intrascan_var.set(True)
+                if "intrascan" in valid:
+                    self.intrascan_var.set(valid["intrascan"])
+                else:
+                    self.intrascan_var.set(True)
 
-            if "interscan" in valid:
-                self.interscan_var.set(valid["interscan"])
-            else:
-                self.interscan_var.set(True)
+                if "interscan" in valid:
+                    self.interscan_var.set(valid["interscan"])
+                else:
+                    self.interscan_var.set(True)
 
-            if "scan_chunk_sizes" in valid:
-                for label in self.scan_chunk_sizes.keys():
-                    if label in valid["scan_chunk_sizes"]:
-                        self.scan_chunk_sizes[label].set(
-                            valid["scan_chunk_sizes"][label]
-                        )
-                    else:
-                        labels_list = [f"{w}x{h}" for w, h in CHUNK_SIZES]
+                if "scan_chunk_sizes" in valid:
+                    for label in self.scan_chunk_sizes.keys():
+                        if label in valid["scan_chunk_sizes"]:
+                            self.scan_chunk_sizes[label].set(
+                                valid["scan_chunk_sizes"][label]
+                            )
+                        else:
+                            labels_list = [f"{w}x{h}" for w, h in CHUNK_SIZES]
+                            label_index = (
+                                labels_list.index(label) if label in labels_list else -1
+                            )
+                            is_enabled = label_index < len(labels_list) - 3
+                            self.scan_chunk_sizes[label].set(is_enabled)
+                else:
+                    labels_list = [f"{w}x{h}" for w, h in CHUNK_SIZES]
+                    for label in self.scan_chunk_sizes.keys():
                         label_index = (
                             labels_list.index(label) if label in labels_list else -1
                         )
                         is_enabled = label_index < len(labels_list) - 3
                         self.scan_chunk_sizes[label].set(is_enabled)
-            else:
-                labels_list = [f"{w}x{h}" for w, h in CHUNK_SIZES]
-                for label in self.scan_chunk_sizes.keys():
-                    label_index = (
-                        labels_list.index(label) if label in labels_list else -1
+
+                if "animation_group" in valid:
+                    self.animation_group = valid["animation_group"]
+                elif self.og_available_frames:
+                    min_frame = self.og_available_frames[0]
+                    self.animation_group = [[{"frame": min_frame, "duration": 30}]]
+
+                self.update_animation_group_listbox()
+
+                # ---- Show warning if there are invalid values ----
+                if invalid_values:
+                    error_lines = []
+                    for k, v in invalid_values.items():
+                        if "\n" in v:
+                            error_lines.append(f"Errors in {k}:")
+                            for line in v.split("\n"):
+                                error_lines.append(f"  • {line}")
+                        else:
+                            error_lines.append(f"Error in {k}:")
+                            error_lines.append(f"  • {v}")
+
+                    invalid_str = "\n".join(error_lines)
+                    messagebox.showwarning(
+                        "Invalid Config Values",
+                        f"The following values were ignored:\n\n{invalid_str}",
                     )
-                    is_enabled = label_index < len(labels_list) - 3
-                    self.scan_chunk_sizes[label].set(is_enabled)
 
-            if "animation_group" in valid:
-                self.animation_group = valid["animation_group"]
-            elif self.og_available_frames:
-                min_frame = self.og_available_frames[0]
-                self.animation_group = [[{"frame": min_frame, "duration": 30}]]
-
-            self.update_animation_group_listbox()
-
-            # ---- Show warning if there are invalid values ----
-            if invalid_values:
-                error_lines = []
-                for k, v in invalid_values.items():
-                    if "\n" in v:
-                        error_lines.append(f"Errors in {k}:")
-                        for line in v.split("\n"):
-                            error_lines.append(f"  • {line}")
-                    else:
-                        error_lines.append(f"Error in {k}:")
-                        error_lines.append(f"  • {v}")
-
-                invalid_str = "\n".join(error_lines)
-                messagebox.showwarning(
-                    "Invalid Config Values",
-                    f"The following values were ignored:\n\n{invalid_str}",
-                )
+            self.prepare_object_generator_data(on_complete=apply_config_values)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load config: {str(e)}")
@@ -1644,8 +1652,10 @@ class ObjectStudioGUI:
             "valid_values": valid_values,
         }
 
-    def prepare_object_generator_data(self):
+    def prepare_object_generator_data(self, on_complete=None):
         self.generate_object_btn.config(state="disabled")
+        self.browse_btn.config(state="disabled")
+        self.load_config_btn.config(state="disabled")
 
         # Reset Frame Images for Viewer
         self.frame_number_to_image = {}
@@ -1661,62 +1671,87 @@ class ObjectStudioGUI:
         folder = self.input_folder.get()
 
         if not folder or not os.path.exists(folder):
+            self.browse_btn.config(state="normal")
+            self.load_config_btn.config(state="normal")
             return
 
         self.clear_console()
 
-        (
-            images_dict,
-            common_image_size,
-            original_shared_palette,
-            max_colors_used,
-            available_frames,
-        ) = validate_og_input_folder(folder)
+        thread = threading.Thread(
+            target=self.validate_object_generator_thread, args=(folder, on_complete)
+        )
+        thread.daemon = True
+        thread.start()
 
-        if (
-            images_dict
-            and common_image_size
-            and original_shared_palette
-            and available_frames
-        ):
-            self.og_images_dict = images_dict
-            self.og_image_width = common_image_size[0]
-            self.og_image_height = common_image_size[1]
-            self.og_shared_palette = original_shared_palette
-            self.og_max_colors_used = max_colors_used
-            self.og_available_frames = available_frames
+    def validate_object_generator_thread(self, folder, on_complete=None):
+        images_dict = None
+        common_image_size = None
+        original_shared_palette = None
+        max_colors_used = None
+        available_frames = None
 
-            local_frame_number_to_image = {}
-            frames_found = {}
+        def complete_validation():
+            if (
+                images_dict
+                and common_image_size
+                and original_shared_palette
+                and available_frames
+            ):
+                self.og_images_dict = images_dict
+                self.og_image_width = common_image_size[0]
+                self.og_image_height = common_image_size[1]
+                self.og_shared_palette = original_shared_palette
+                self.og_max_colors_used = max_colors_used
+                self.og_available_frames = available_frames
 
-            for data in self.og_images_dict.values():
-                frame_num, layer_num, _ = data["frame_layer_palette_tuple"]
-                frames_found.setdefault(frame_num, []).append(
-                    (layer_num, data["image_data"])
-                )
+                local_frame_number_to_image = {}
+                frames_found = {}
 
-            # Composite each frame for viewer
-            frame_numbers = sorted(frames_found.keys())
-            for frame_no in frame_numbers:
-                layers = sorted(frames_found[frame_no], key=lambda x: x[0])
-                base = None
-                for _, img in layers:
-                    base = img if base is None else Image.alpha_composite(base, img)
+                for data in self.og_images_dict.values():
+                    frame_num, layer_num, _ = data["frame_layer_palette_tuple"]
+                    frames_found.setdefault(frame_num, []).append(
+                        (layer_num, data["image_data"])
+                    )
 
-                local_frame_number_to_image[frame_no] = ImageTk.PhotoImage(base)
+                # Composite each frame for viewer
+                frame_numbers = sorted(frames_found.keys())
+                for frame_no in frame_numbers:
+                    layers = sorted(frames_found[frame_no], key=lambda x: x[0])
+                    base = None
+                    for _, img in layers:
+                        base = img if base is None else Image.alpha_composite(base, img)
 
-            self.frame_number_to_image = local_frame_number_to_image
+                    local_frame_number_to_image[frame_no] = ImageTk.PhotoImage(base)
 
-            if DEBUG:
-                print(
-                    f"[OK] Composite images created for frames: {self.og_available_frames}\n"
-                )
+                self.frame_number_to_image = local_frame_number_to_image
 
-            print(f"[OK] Available Frames: {self.og_available_frames}")
+                if DEBUG:
+                    print(
+                        f"[OK] Composite images created for frames: {self.og_available_frames}\n"
+                    )
 
-            # Enable process button
-            self.generate_object_btn.config(state="normal")
-            print("\n[OK] Validation Successful. Ready to generate.")
+                print(f"[OK] Available Frames: {self.og_available_frames}")
+
+                # Enable process button
+                self.generate_object_btn.config(state="normal")
+                print("\n[OK] Validation Successful. Ready to generate.")
+
+                on_complete and on_complete()
+
+        try:
+            (
+                images_dict,
+                common_image_size,
+                original_shared_palette,
+                max_colors_used,
+                available_frames,
+            ) = validate_og_input_folder(folder)
+        except Exception as e:
+            print(f"\n[ERROR] Validation error: {str(e)}")
+        finally:
+            self.root.after(0, complete_validation)
+            self.root.after(0, lambda: self.browse_btn.config(state="normal"))
+            self.root.after(0, lambda: self.load_config_btn.config(state="normal"))
 
     def generate_object(self):
         self.clear_console()
@@ -1756,7 +1791,7 @@ class ObjectStudioGUI:
             inter_scan = self.interscan_var.get()
             input_folder = self.input_folder.get()
 
-            print("\n[START] Starting Object Generation...")
+            print("[START] Starting Object Generation...")
 
             data_needed_for_processing = (
                 input_folder,
@@ -1790,38 +1825,61 @@ class ObjectStudioGUI:
 
     def prepare_frames_generator_data(self):
         self.generate_frames_btn.config(state="disabled")
+        self.recon_browse_btn.config(state="disabled")
 
         folder = self.recon_folder.get()
 
         if not folder or not os.path.exists(folder):
+            self.recon_browse_btn.config(state="normal")
             return
 
         self.clear_console()
 
-        (
-            riff_palette_data,
-            images_dict,
-            frames_xml_root,
-            animations_xml_root,
-            normal_mode,
-            special_cases_info,
-        ) = validate_fg_input_folder(folder)
+        thread = threading.Thread(
+            target=self.validate_frames_generator_thread, args=(folder,)
+        )
+        thread.daemon = True
+        thread.start()
 
-        if (
-            riff_palette_data
-            and images_dict
-            and frames_xml_root is not None
-            and animations_xml_root is not None
-        ):
-            self.fg_normal_mode = normal_mode
-            self.fg_special_cases_info = special_cases_info
-            self.fg_riff_palette_data = riff_palette_data
-            self.fg_images_dict = images_dict
-            self.fg_frames_xml_root = frames_xml_root
-            self.fg_animations_xml_root = animations_xml_root
+    def validate_frames_generator_thread(self, folder):
+        riff_palette_data = None
+        images_dict = None
+        frames_xml_root = None
+        animations_xml_root = None
+        normal_mode = None
+        special_cases_info = None
 
-            self.generate_frames_btn.config(state="normal")
-            print("[OK] Validation Successful. Ready to generate.")
+        def complete_validation():
+            if (
+                riff_palette_data
+                and images_dict
+                and frames_xml_root is not None
+                and animations_xml_root is not None
+            ):
+                self.fg_normal_mode = normal_mode
+                self.fg_special_cases_info = special_cases_info
+                self.fg_riff_palette_data = riff_palette_data
+                self.fg_images_dict = images_dict
+                self.fg_frames_xml_root = frames_xml_root
+                self.fg_animations_xml_root = animations_xml_root
+
+                self.generate_frames_btn.config(state="normal")
+                print("[OK] Validation Successful. Ready to generate.")
+
+        try:
+            (
+                riff_palette_data,
+                images_dict,
+                frames_xml_root,
+                animations_xml_root,
+                normal_mode,
+                special_cases_info,
+            ) = validate_fg_input_folder(folder)
+        except Exception as e:
+            print(f"\n[ERROR] Validation error: {str(e)}")
+        finally:
+            self.root.after(0, complete_validation)
+            self.root.after(0, lambda: self.recon_browse_btn.config(state="normal"))
 
     def generate_frames(self):
         self.clear_console()
@@ -1838,7 +1896,7 @@ class ObjectStudioGUI:
             input_folder = self.recon_folder.get()
             avoid_overlap = self.avoid_overlap.get()
 
-            print("\n[START] Starting Frames Generation...")
+            print("[START] Starting Frames Generation...")
 
             data_needed_for_processing = (
                 self.fg_normal_mode,
@@ -1865,24 +1923,68 @@ class ObjectStudioGUI:
             self.root.after(0, lambda: self.generate_frames_btn.config(state="normal"))
 
     def redirect_stdout_to_console(self):
-        console_widget = self.console_text
+        stdout_queue = self.stdout_queue
+        root = self.root
+        processor_event = self._stdout_processor_scheduled
 
-        stdout_writer = type(
-            "StdoutWriter",
-            (object,),
-            {
-                "write": lambda self, text: (
-                    console_widget.config(state="normal"),
-                    console_widget.insert(tk.END, text),
-                    console_widget.see(tk.END),
-                    console_widget.config(state="disabled"),
-                    console_widget.update_idletasks(),
-                ),
-                "flush": lambda self: None,
-            },
-        )()
+        def schedule_processing():
+            if not processor_event.is_set():
+                processor_event.set()
+                root.after(0, self._process_stdout_queue)
 
-        sys.stdout = stdout_writer
+        class StdoutWriter:
+            def __init__(self, queue_ref, schedule_fn):
+                self.queue = queue_ref
+                self.schedule = schedule_fn
+
+            def write(self, text):
+                if text:
+                    try:
+                        self.queue.put_nowait(text)
+                        self.schedule()
+                    except queue.Full:
+                        try:
+                            self.queue.get_nowait()
+                            self.queue.put_nowait(text)
+                            self.schedule()
+                        except queue.Empty:
+                            pass
+                    except Exception:
+                        pass
+
+            def flush(self):
+                self.schedule()
+
+        sys.stdout = StdoutWriter(stdout_queue, schedule_processing)
+
+    def _process_stdout_queue(self):
+        self._stdout_processor_scheduled.clear()
+        messages = []
+        max_batch_size = 50
+        max_chars = 5000
+
+        try:
+            char_count = 0
+            while len(messages) < max_batch_size and char_count < max_chars:
+                text = self.stdout_queue.get_nowait()
+                messages.append(text)
+                char_count += len(text)
+        except queue.Empty:
+            pass
+
+        if messages:
+            combined_text = "".join(messages)
+            try:
+                self.console_text.config(state="normal")
+                self.console_text.insert(tk.END, combined_text)
+                self.console_text.see(tk.END)
+                self.console_text.config(state="disabled")
+            except tk.TclError:
+                pass
+
+        if not self.stdout_queue.empty():
+            self._stdout_processor_scheduled.set()
+            self.root.after(10, self._process_stdout_queue)
 
 
 # ----------------Entry Point----------------
