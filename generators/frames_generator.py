@@ -253,12 +253,7 @@ def build_tile_map(images_dict, special_cases_info):
 
     tile_map = np.concatenate(all_tiles, axis=0)
 
-    return {
-        "original": tile_map,
-        "flip_h": np.flip(tile_map, axis=2),
-        "flip_v": np.flip(tile_map, axis=1),
-        "flip_both": np.flip(tile_map, (1, 2)),
-    }
+    return tile_map
 
 
 def build_chunk_from_tilemap(tile_map, start_tile_index, chunk_width, chunk_height):
@@ -384,7 +379,7 @@ def reconstruct_frames(
         chunk_orientation_dict[key] = arr
         return arr
 
-    tile_map_dict = None
+    tile_map = None
 
     # Reconstruct frames
     for frame_id, chunks_info in frames_dict.items():
@@ -431,19 +426,10 @@ def reconstruct_frames(
 
             elif chunk_id < 0:
                 # Build chunk directly from tile_map
-                if tile_map_dict is None:
-                    tile_map_dict = build_tile_map(images_dict, special_cases_info)
+                if tile_map is None:
+                    tile_map = build_tile_map(images_dict, special_cases_info)
 
                 start_tile_index = chunk_memory_offset * 4
-
-                if chunk_hflip and chunk_vflip:
-                    tile_map = tile_map_dict["flip_both"]
-                elif chunk_hflip:
-                    tile_map = tile_map_dict["flip_h"]
-                elif chunk_vflip:
-                    tile_map = tile_map_dict["flip_v"]
-                else:
-                    tile_map = tile_map_dict["original"]
 
                 piece = build_chunk_from_tilemap(
                     tile_map,
@@ -451,6 +437,14 @@ def reconstruct_frames(
                     chunk_width,
                     chunk_height,
                 )
+
+                # Flip the assembled chunk
+                if chunk_hflip and chunk_vflip:
+                    piece = np.flip(piece, (0, 1))
+                elif chunk_hflip:
+                    piece = np.flip(piece, axis=1)
+                elif chunk_vflip:
+                    piece = np.flip(piece, axis=0)
 
             # Map to global palette
             palette_no = (chunk_palette_offset - 0xC) // 0x10
@@ -518,7 +512,7 @@ def reconstruct_frames(
 
     print(f"\n[OK] Frames saved to: {output_folder}")
 
-    return tile_map_dict
+    return tile_map
 
 
 def create_json_from_animation_xml(animations_xml_root, output_folder):
@@ -568,7 +562,7 @@ def generate_frames_main(data):
     global_palette = load_riff_palette(riff_palette_data)
 
     # Reconstruct frames
-    tile_map_dict = reconstruct_frames(
+    tile_map = reconstruct_frames(
         frames_xml_root,
         images_dict,
         normal_mode,
@@ -584,9 +578,7 @@ def generate_frames_main(data):
         os.makedirs(debug_output_folder, exist_ok=True)
 
         if not normal_mode:
-            save_tile_map(
-                tile_map_dict["original"], global_palette, debug_output_folder
-            )
+            save_tile_map(tile_map, global_palette, debug_output_folder)
 
     # Generate animation.json
     create_json_from_animation_xml(animations_xml_root, output_folder)

@@ -54,7 +54,7 @@ If you prefer, you can also [run from source code](#linuxrun-from-source-code) â
 
 **Requirements:**
 
--   Python 3.8 or higher
+-   Python 3.9 or higher
 -   pip (Python package manager)
 -   tkinter (Python Tk GUI toolkit)
 

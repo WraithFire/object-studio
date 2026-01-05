@@ -16,11 +16,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
+          python -m pip install pyinstaller
+          python -m pip install -r requirements.txt
 
       - name: Build EXE
         run: |
@@ -44,11 +49,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
+          python -m pip install pyinstaller
+          python -m pip install -r requirements.txt
 
       - name: Build APP
         run: |
@@ -74,11 +84,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
+          python -m pip install pyinstaller
+          python -m pip install -r requirements.txt
 
       - name: Build App
         run: |
