@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import xxhash
 import colorsys
 import numpy as np
@@ -1315,6 +1316,8 @@ def generate_object_main(data):
     save_transparent_frames_chunk(chunk_track_dict, frame_layes_name_dict)
 
     output_folder = os.path.join(input_folder, "object")
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
 
     print("\nGenerated File Info:")
     # Chunk Saving

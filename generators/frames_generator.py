@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import numpy as np
 import xml.etree.ElementTree as ET
 from data import DEBUG, TILE_SIZE, CHUNK_SIZES, special_cases
@@ -557,6 +558,8 @@ def generate_frames_main(data):
     ) = data
 
     output_folder = os.path.join(input_folder, "frames")
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
     os.makedirs(output_folder, exist_ok=True)
 
     global_palette = load_riff_palette(riff_palette_data)
