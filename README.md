@@ -1,17 +1,21 @@
-# 🧩 Object Studio
+# ⚠️ Notice
+
+Object Studio has been replaced by [Wanimation Studio](https://github.com/WraithFire/wanimation-studio), which includes all of its features and more. This repository is archived and no longer maintained.
+
+## 🧩 Object Studio
 
 **Object Studio** is a set of two tools — **Object Generator** and **Frames Generator** — made for **Pokémon Mystery Dungeon: Explorers of Sky object modding**.
 
--   The **Object Generator** converts **frames into objects** that can be imported into **SkyTemple** or converted back into **.wan** format using **GFXCrunch** for in-game use.
--   The **Frames Generator** recreates **frames from existing object**, allowing them to be viewed and edited in external tools such as **Aseprite**.
+- The **Object Generator** converts **frames into objects** that can be imported into **SkyTemple** or converted back into **.wan** format using **GFXCrunch** for in-game use.
+- The **Frames Generator** recreates **frames from existing object**, allowing them to be viewed and edited in external tools such as **Aseprite**.
 
 ## Why Use This?
 
 **SkyTemple** is an amazing tool, but when it comes to objects, it has a few big limits:
 
--   You can only import **one-frame, one-layer** objects — meaning **no animations**.
--   Objects are limited to **16 colors**, even though the game actually supports **up to 192 colors** (12 palette groups).
--   It doesn’t **reuse chunks** — it stores duplicate chunks instead of referencing repeating ones, which wastes memory.
+- You can only import **one-frame, one-layer** objects — meaning **no animations**.
+- Objects are limited to **16 colors**, even though the game actually supports **up to 192 colors** (12 palette groups).
+- It doesn’t **reuse chunks** — it stores duplicate chunks instead of referencing repeating ones, which wastes memory.
 
 The **Object Generator** removes all of these limits, letting you create **animated, multi-layered, multi-palette objects** that are memory-efficient and fully compatible with the game.
 
@@ -30,8 +34,8 @@ If you prefer, you can also [run from source code](#linuxrun-from-source-code) �
 
 > ⚠️ If Windows Defender warns you about an unrecognized app:
 >
-> -   Click **"More info"**
-> -   Then click **"Run anyway"**
+> - Click **"More info"**
+> - Then click **"Run anyway"**
 
 ## macOS
 
@@ -47,22 +51,21 @@ If you prefer, you can also [run from source code](#linuxrun-from-source-code) �
 
 > ⚠️ If macOS blocks the app:
 >
-> -   Open **System Preferences → Security & Privacy**
-> -   Click **“Open Anyway”** for _Object Studio_
+> - Open **System Preferences → Security & Privacy**
+> - Click **“Open Anyway”** for _Object Studio_
 
 ## Linux/Run from source code
 
 **Requirements:**
 
--   Python 3.9 or higher
--   pip (Python package manager)
--   tkinter (Python Tk GUI toolkit)
+- Python 3.9 or higher
+- pip (Python package manager)
+- tkinter (Python Tk GUI toolkit)
 
 **Installation Steps:**
 
 1. **Get the source code:**
    You can either **clone the repository** or **download the ZIP file** from this repository.
-
     - **Option 1: Clone the repository (recommended)**
 
         ```bash
@@ -70,7 +73,6 @@ If you prefer, you can also [run from source code](#linuxrun-from-source-code) �
         ```
 
     - **Option 2: Download the ZIP file**
-
         - Direct link: [Download ZIP](https://github.com/WraithFire/object-studio/archive/refs/heads/master.zip)
         - After downloading, extract the ZIP file to your desired location.
         - Once extracted, **open terminal** in the extracted folder, **skip Step 2**, and continue from **Step 3** below.
@@ -93,20 +95,12 @@ If you prefer, you can also [run from source code](#linuxrun-from-source-code) �
     python object_studio.py
     ```
 
-## 🤝 Contributing
-
-Contributions are welcome!
-If you have ideas, improvements, or bug fixes:
-
--   Open an **issue**
--   Or submit a **pull request**
-
 ## 🏆 Credits
 
 Special thanks to the following community members:
 
--   **psy_commando** - for extensive documentation and the [GFX Crunch](https://github.com/PsyCommando/ppmdu_2) tool
--   **palika** - for the incredibly useful [Animated Object Guide](https://docs.google.com/document/d/1ckoH65jPlHYZAVn0PMxO3zsuhlzpR3pQ3fOjljqyqD0)
+- **psy_commando** - for extensive documentation and the [GFX Crunch](https://github.com/PsyCommando/ppmdu_2) tool
+- **palika** - for the incredibly useful [Animated Object Guide](https://docs.google.com/document/d/1ckoH65jPlHYZAVn0PMxO3zsuhlzpR3pQ3fOjljqyqD0)
 
 ## 📜 License
 
@@ -115,7 +109,4 @@ See the [LICENSE](LICENSE) file for full terms.
 
 ## 💬 Support
 
-Need help?
-
-1. Start by reading the [documentation](docs/README.md) — it explains how to use the tool and what each configuration means.
-2. If the documentation doesn’t answer your question, feel free to message me on Discord: **@wraith_fire**
+Need help? Start by reading the [documentation](docs/README.md) — it explains how to use the tool and what each configuration means.
